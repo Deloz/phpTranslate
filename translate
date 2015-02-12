@@ -1,0 +1,143 @@
+#!/usr/bin/env php
+<?php
+    //print_r($argv);
+
+    class Curl{
+        public $api_key = 'm4XIbmvXx5dQy0kV6koYKOhM';
+        public $ch;
+        public $url = 'http://openapi.baidu.com/public/2.0/';
+        public $fromParam;
+
+        //翻译的类型 词典和翻译
+        const API_TYPE_DICT = 1;
+        const API_TYPE_TRAN = 2;
+
+        public function __construct() {
+            $this->ch = curl_init();
+        }
+
+        public function get($fromParam) {
+
+            $this->fromParam = trim($fromParam);
+
+            $tranResult = $this->getTrans();
+
+            $dictResult = $this->getDict();
+
+            return $data = [
+                'src' => $tranResult->src,
+                'dst' => $tranResult->dst,
+                'dict' => $dictResult,
+            ];
+        }
+
+        public function buildUrl($type, $model=null) {
+            if ($model) {
+                $this->url = 'http://openapi.baidu.com/public/2.0/';
+            }
+
+            //词典和翻译的URL不同 但是前面的部分是一样的
+            if ($type === Curl::API_TYPE_DICT) {
+                $this->url = $this->url . 'translate/dict/simple?';
+
+
+                //百度API目前只支持 中文 和 英文的词典翻译 只是做了一个简单的正则判断
+                $from   = 'en';
+                $to     = 'zh';
+
+                $reg = '#[a-zA-Z\s]#is';
+                if (!preg_match($reg, $this->fromParam)) {
+                    $from   = 'zh';
+                    $to     = 'en';
+                }
+
+                $urlParams = [
+                    'client_id' => $this->api_key,
+                    'q'         => $this->fromParam,
+                    'from'      => $from,
+                    'to'        => $to,
+                ];
+
+
+            } else {
+                $this->url = $this->url . 'bmt/translate?';
+                $urlParams = [
+                    'q'         => $this->fromParam,
+                    'client_id' => $this->api_key,
+                    'from'      => 'auto',
+                    'to'        => 'auto',
+                ];
+            }
+
+            $this->url = $this->url . http_build_query($urlParams);
+
+            curl_setopt_array($this->ch, [
+                CURLOPT_URL                 => $this->url,
+                CURLOPT_RETURNTRANSFER      => true,
+                CURLOPT_FOLLOWLOCATION      => true,
+                CURLOPT_CONNECTTIMEOUT      => 10,
+                CURLOPT_ENCODING            => '',
+                CURLOPT_REFERER             => $this->getUrlHost($this->url),
+                CURLOPT_USERAGENT           => 'Mozilla/5.0 (Windows NT 6.1; WOW64; rv:33.0) Gecko/20100101 Firefox/33.0',
+            ]);
+
+            $result = curl_exec($this->ch);
+
+            if ($result === false) {
+                echo 'Curl error: ' . curl_error($ch), PHP_EOL;die;
+            }
+
+            return $result;
+        }
+
+        public function getDict() {
+            $result = $this->buildUrl(Curl::API_TYPE_DICT, $model=true);
+            return $this->parseDict($result);
+        }
+
+        public function getTrans() {
+            $result = $this->buildUrl(Curl::API_TYPE_TRAN);
+
+            return $this->parseTran($result);
+        }
+
+        public function parseTran($result) {
+            $result = json_decode($result);
+            return $result->trans_result[0];
+        }
+
+        public function parseDict($result) {
+            $result = json_decode($result);
+            if (empty($result->data)) {
+                return array();
+            }
+            return $result->data->symbols[0]->parts;
+        }
+
+        public function getUrlHost($url) {
+            if (!filter_var($url,FILTER_VALIDATE_URL)) {
+                return $url;
+            }
+            return parse_url($url,PHP_URL_HOST);
+        }
+    }
+
+    if (count($argv) <= 1) {
+        echo '没有输入', PHP_EOL;die;
+    }
+
+    $q = '';
+    foreach ($argv as $key=>$val) {
+        if ($key == 0) continue;
+        $q .= $val . ' ';
+    }
+
+    $curl = new Curl();
+    $result = $curl->get($q);
+    echo $q, ' 的翻译结果：', $result['dst'], PHP_EOL;
+    
+    foreach ($result['dict'] as $item) {
+        foreach ($item->means as $val) {
+            echo $item->part, $val, PHP_EOL;
+        }
+    }
