@@ -87,6 +87,8 @@
                 echo 'Curl error: ' . curl_error($ch), PHP_EOL;die;
             }
 
+            curl_close($ch);
+
             return $result;
         }
 
@@ -137,7 +139,7 @@
     $curl = new Curl();
     $result = $curl->get($q);
     echo $q, ' 的翻译结果：', $result['dst'], PHP_EOL;
-    
+
     foreach ($result['dict'] as $item) {
         foreach ($item->means as $val) {
             echo $item->part, $val, PHP_EOL;
