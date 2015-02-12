@@ -123,7 +123,9 @@
     }
 
     if (count($argv) <= 1) {
-        echo '没有输入', PHP_EOL;die;
+        echo '没有输入： ', PHP_EOL;
+        echo 'Use: translate test', PHP_EOL;
+        die;
     }
 
     $q = '';
